@@ -68,6 +68,14 @@ button {
   background: linear-gradient(145deg, #617bff, #4157c7);
   box-shadow: 0 5px 22px #526fe33b;
 }
+.brand-mark.brand-mark-image {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: contain;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
 .brand-name {
   font-family: Manrope, sans-serif;
   font-size: 16px;
@@ -1977,8 +1985,6 @@ button {
 
 .brand-mark {
   color: #f0fff9;
-  background: linear-gradient(145deg, #54d9b2, #187d70);
-  box-shadow: 0 6px 24px rgba(53, 197, 154, 0.24);
 }
 
 .brand-name span {
