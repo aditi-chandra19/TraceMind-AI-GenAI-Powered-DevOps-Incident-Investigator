@@ -57,4 +57,3 @@ incidentRouter.patch("/:id/status", requireRole("admin", "analyst"), async (req,
     return res.json({ data: incident, mode: "demo" });
   } catch (error) { return next(error); }
 });
-
