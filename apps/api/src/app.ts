@@ -16,7 +16,12 @@ import { maxUploadMb } from "./config/limits.js";
 export const app = express();
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173", credentials: true }));
+const configuredWebOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
+const viteDevOrigin = /^http:\/\/(?:localhost|127\.0\.0\.1):517[0-9]$/;
+app.use(cors({ origin(origin, callback) {
+  if (!origin || origin === configuredWebOrigin || (process.env.NODE_ENV !== "production" && viteDevOrigin.test(origin))) return callback(null, true);
+  return callback(null, false);
+}, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(pinoHttp({ level: process.env.NODE_ENV === "test" ? "silent" : "info", redact: { paths: ["req.headers.authorization", "req.headers.cookie", "req.headers.set-cookie"], censor: "[REDACTED]" } }));

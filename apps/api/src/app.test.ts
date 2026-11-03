@@ -18,6 +18,13 @@ describe("TraceMind API", () => {
     expect((await response.json()).mode).toBe("demo");
   });
 
+  it("allows Vite's fallback localhost port for credentialed development requests", async () => {
+    const response = await fetch(`${base}/api/auth/me`, { headers: { origin: "http://localhost:5174" } });
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
+    expect(response.headers.get("access-control-allow-credentials")).toBe("true");
+    expect(response.status).toBe(401);
+  });
+
   it("registers analysts with a strong password and never returns password hashes", async () => {
     const weak = await fetch(`${base}/api/auth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "New Analyst", email: "analyst@example.test", password: "short" }) });
     expect(weak.status).toBe(400);
