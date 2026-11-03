@@ -1,0 +1,17 @@
+{
+  "name": "tracemind-ai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "TraceMind AI — Intelligent DevOps Incident Investigator",
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/web run build && npm --workspace apps/api run build",
+    "test": "npm --workspace apps/api test && npm --workspace apps/web test",
+    "typecheck": "npm --workspace apps/api run typecheck && npm --workspace apps/web run typecheck"
+  },
+  "devDependencies": { "concurrently": "^9.2.1" },
+  "overrides": { "nanoid": "3.3.11" }
+}
