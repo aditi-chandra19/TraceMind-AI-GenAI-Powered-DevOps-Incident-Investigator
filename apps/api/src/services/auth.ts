@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../config/env.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';

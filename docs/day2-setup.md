@@ -24,7 +24,7 @@ The normal local setup uses a real MongoDB database. Demo mode is optional and m
 
 4. Open `http://localhost:5173` and sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` values from `.env`. Check `http://localhost:4000/api/health`; its `mode` should be `mongodb`.
 
-MongoDB is published only on `127.0.0.1:27017`, requires the local root credentials, and stores its data in the named `tracemind-mongo-data` Docker volume. `npm run db:down` stops MongoDB while keeping the data. To delete the database permanently, use `docker compose down -v`.
+MongoDB is published only on `127.0.0.1:27018` (container port 27017), requires the local root credentials, and stores its data in the named `tracemind-mongo-data` Docker volume. The separate host port avoids conflicts with a MongoDB service already installed on Windows. `npm run db:down` stops MongoDB while keeping the data. To delete the database permanently, use `docker compose down -v`.
 
 If `DEMO_MODE=false`, the API now exits with an error when MongoDB is missing or unreachable instead of silently switching to in-memory demo storage.
 
