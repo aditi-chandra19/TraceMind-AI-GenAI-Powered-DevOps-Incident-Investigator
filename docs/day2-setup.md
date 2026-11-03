@@ -1,6 +1,36 @@
 # Day 2 setup: accounts, sessions, storage, and logs
 
+## Run with local MongoDB in Docker
+
+The normal local setup uses a real MongoDB database. Demo mode is optional and must be explicitly enabled.
+
+1. Install and start Docker Desktop for Windows. Docker Desktop needs the WSL 2 backend; if it prompts you, enable WSL 2 and restart Windows, then wait until Docker Desktop says it is running.
+2. In the repository root, create a private environment file and set the database and admin passwords:
+
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+
+   Replace `MONGO_ROOT_PASSWORD` with a long random value, use the same value in the password portion of `MONGODB_URI`, and set a unique `JWT_SECRET` (at least 32 characters) and `ADMIN_PASSWORD` (12–72 bytes). `.env` is ignored by Git.
+
+3. Start MongoDB, create the initial administrator and sample incidents, then start the application:
+
+   ```powershell
+   npm run db:up
+   npm run db:seed
+   npm run dev
+   ```
+
+4. Open `http://localhost:5173` and sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` values from `.env`. Check `http://localhost:4000/api/health`; its `mode` should be `mongodb`.
+
+MongoDB is published only on `127.0.0.1:27017`, requires the local root credentials, and stores its data in the named `tracemind-mongo-data` Docker volume. `npm run db:down` stops MongoDB while keeping the data. To delete the database permanently, use `docker compose down -v`.
+
+If `DEMO_MODE=false`, the API now exits with an error when MongoDB is missing or unreachable instead of silently switching to in-memory demo storage.
+
 ## Run the application in demo mode
+
+Set `DEMO_MODE=true` in `.env` and leave MongoDB unavailable to use the in-memory sample account and data. This mode is for trying the interface; changes are lost when the API restarts.
 
 From the repository root:
 

@@ -9,8 +9,9 @@ import { demoModeEnabled } from './services/auth.js';
 const port = Number(process.env.PORT ?? 4000);
 let server: ReturnType<typeof app.listen>;
 const runtimeState = globalThis as typeof globalThis & { __traceMindMongoReady?: boolean };
-if (process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI)
-  throw new Error('MONGODB_URI is required in production.');
+const requiresMongo = process.env.NODE_ENV === 'production' || process.env.DEMO_MODE === 'false';
+if (requiresMongo && !process.env.MONGODB_URI)
+  throw new Error('MONGODB_URI is required when demo mode is disabled.');
 if (process.env.MONGODB_URI) {
   try {
     await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
@@ -32,7 +33,7 @@ if (process.env.MONGODB_URI) {
     console.info('MongoDB connected; demo incidents are seeded idempotently');
   } catch (error) {
     runtimeState.__traceMindMongoReady = false;
-    if (process.env.NODE_ENV === 'production') throw error;
+    if (requiresMongo) throw error;
     console.warn(
       'MongoDB unavailable; starting in demo mode',
       error instanceof Error ? error.message : 'connection error',
