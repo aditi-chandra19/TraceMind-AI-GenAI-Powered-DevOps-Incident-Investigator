@@ -1,5 +1,5 @@
-export type Severity = "critical" | "high" | "medium" | "low";
-export type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved";
+export type Severity = 'critical' | 'high' | 'medium' | 'low';
+export type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved';
 
 export interface Incident {
   id: string;
@@ -14,5 +14,10 @@ export interface Incident {
   rootCause: string;
   confidence: number;
   signals: { label: string; value: number; color: string }[];
-  timeline: { time: string; title: string; detail: string; kind: "alert" | "analysis" | "action" }[];
+  timeline: {
+    time: string;
+    title: string;
+    detail: string;
+    kind: 'alert' | 'analysis' | 'action';
+  }[];
 }

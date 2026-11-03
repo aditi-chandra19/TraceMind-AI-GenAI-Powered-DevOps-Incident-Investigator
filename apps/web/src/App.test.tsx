@@ -1,53 +1,75 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
-import { getCurrentUser, signIn } from "./api";
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import App from './App';
+import { getCurrentUser, signIn } from './api';
 
-vi.mock("./api", async () => {
-  const { demoIncidents } = await import("./data/demo");
+vi.mock('./api', async () => {
+  const { demoIncidents } = await import('./data/demo');
   return {
-    getCurrentUser: vi.fn(async () => ({ user: { id: "demo-admin", name: "TraceMind Demo Admin", email: "admin@tracemind.local", role: "admin" as const }, mode: "demo" as const })),
-    getIncidents: vi.fn(async () => ({ data: demoIncidents, mode: "demo" as const })),
-    signIn: vi.fn(async () => ({ user: { id: "demo-admin", name: "TraceMind Demo Admin", email: "admin@tracemind.local", role: "admin" as const }, mode: "demo" as const })),
-    signUp: vi.fn(), signOut: vi.fn(), uploadLog: vi.fn()
+    getCurrentUser: vi.fn(async () => ({
+      user: {
+        id: 'demo-admin',
+        name: 'TraceMind Demo Admin',
+        email: 'admin@tracemind.local',
+        role: 'admin' as const,
+      },
+      mode: 'demo' as const,
+    })),
+    getIncidents: vi.fn(async () => ({ data: demoIncidents, mode: 'demo' as const })),
+    signIn: vi.fn(async () => ({
+      user: {
+        id: 'demo-admin',
+        name: 'TraceMind Demo Admin',
+        email: 'admin@tracemind.local',
+        role: 'admin' as const,
+      },
+      mode: 'demo' as const,
+    })),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+    uploadLog: vi.fn(),
   };
 });
 
-describe("TraceMind dashboard", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+describe('TraceMind dashboard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   afterEach(() => cleanup());
 
-  it("shows seeded incidents and the demo-mode label", async () => {
+  it('shows seeded incidents and the demo-mode label', async () => {
     render(<App />);
-    expect(await screen.findByText("DEMO DATA")).toBeInTheDocument();
-    expect(screen.getByText("Recent incidents")).toBeInTheDocument();
-    expect(await within(screen.getByRole("table")).findByText("INC-2847")).toBeInTheDocument();
+    expect(await screen.findByText('DEMO DATA')).toBeInTheDocument();
+    expect(screen.getByText('Recent incidents')).toBeInTheDocument();
+    expect(await within(screen.getByRole('table')).findByText('INC-2847')).toBeInTheDocument();
   });
 
-  it("shows the sign-in screen and enters the dashboard after login", async () => {
+  it('shows the sign-in screen and enters the dashboard after login', async () => {
     vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Recent incidents")).toBeInTheDocument();
-    expect(signIn).toHaveBeenCalledWith("admin@tracemind.local", "TraceMindDemo!2026");
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByText('Recent incidents')).toBeInTheDocument();
+    expect(signIn).toHaveBeenCalledWith('admin@tracemind.local', 'TraceMindDemo!2026');
   });
 
-  it("filters incident rows by search text", async () => {
+  it('filters incident rows by search text', async () => {
     render(<App />);
-    const search = await screen.findByRole("textbox", { name: "Search incidents" });
-    fireEvent.change(search, { target: { value: "payment" } });
-    const table = screen.getByRole("table");
-    await waitFor(() => expect(within(table).getByText("INC-2846")).toBeInTheDocument());
-    expect(within(table).queryByText("INC-2847")).not.toBeInTheDocument();
+    const search = await screen.findByRole('textbox', { name: 'Search incidents' });
+    fireEvent.change(search, { target: { value: 'payment' } });
+    const table = screen.getByRole('table');
+    await waitFor(() => expect(within(table).getByText('INC-2846')).toBeInTheDocument());
+    expect(within(table).queryByText('INC-2847')).not.toBeInTheDocument();
   });
 
-  it("filters incidents by severity", async () => {
+  it('filters incidents by severity', async () => {
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: /Filter/ }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Filter by severity" }), { target: { value: "critical" } });
-    const table = screen.getByRole("table");
-    await waitFor(() => expect(within(table).getByText("INC-2847")).toBeInTheDocument());
-    expect(within(table).queryByText("INC-2846")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Filter/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by severity' }), {
+      target: { value: 'critical' },
+    });
+    const table = screen.getByRole('table');
+    await waitFor(() => expect(within(table).getByText('INC-2847')).toBeInTheDocument());
+    expect(within(table).queryByText('INC-2846')).not.toBeInTheDocument();
   });
 });
