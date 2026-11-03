@@ -1,10 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { getCurrentUser, signIn } from "./api";
 
 vi.mock("./api", async () => {
   const { demoIncidents } = await import("./data/demo");
-  return { getIncidents: async () => ({ data: demoIncidents, mode: "demo" }) };
+  return {
+    getCurrentUser: vi.fn(async () => ({ user: { id: "demo-admin", name: "TraceMind Demo Admin", email: "admin@tracemind.local", role: "admin" as const }, mode: "demo" as const })),
+    getIncidents: vi.fn(async () => ({ data: demoIncidents, mode: "demo" as const })),
+    signIn: vi.fn(async () => ({ user: { id: "demo-admin", name: "TraceMind Demo Admin", email: "admin@tracemind.local", role: "admin" as const }, mode: "demo" as const })),
+    signUp: vi.fn(), signOut: vi.fn(), uploadLog: vi.fn()
+  };
 });
 
 describe("TraceMind dashboard", () => {
@@ -15,7 +21,16 @@ describe("TraceMind dashboard", () => {
     render(<App />);
     expect(await screen.findByText("DEMO DATA")).toBeInTheDocument();
     expect(screen.getByText("Recent incidents")).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).getByText("INC-2847")).toBeInTheDocument();
+    expect(await within(screen.getByRole("table")).findByText("INC-2847")).toBeInTheDocument();
+  });
+
+  it("shows the sign-in screen and enters the dashboard after login", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("Recent incidents")).toBeInTheDocument();
+    expect(signIn).toHaveBeenCalledWith("admin@tracemind.local", "TraceMindDemo!2026");
   });
 
   it("filters incident rows by search text", async () => {

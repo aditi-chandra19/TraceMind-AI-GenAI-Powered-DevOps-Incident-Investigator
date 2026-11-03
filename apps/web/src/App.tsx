@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Bell, Box, ChevronDown, ChevronRight, CircleHelp, Cpu, ExternalLink, FileText, Filter, Gauge, Github, LayoutDashboard, LifeBuoy, Menu, MoreHorizontal, Network, Search, Settings2, ShieldCheck, Sparkles, TerminalSquare, UploadCloud, Users, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Activity, ArrowDownRight, ArrowUpRight, Bell, Box, ChevronDown, ChevronRight, CircleHelp, Cpu, ExternalLink, FileText, Filter, Gauge, Github, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, Mail, Menu, MoreHorizontal, Network, Search, Settings2, ShieldCheck, Sparkles, TerminalSquare, UploadCloud, Users, X } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getIncidents } from "./api";
+import { getCurrentUser, getIncidents, signIn, signOut, signUp, uploadLog, type Session, type SessionUser } from "./api";
 import type { Incident, Severity } from "./types";
 
 const trend = [
@@ -12,38 +12,75 @@ const navMain = [{ label: "Overview", icon: LayoutDashboard }, { label: "Inciden
 const navTools = [{ label: "AI investigations", icon: Sparkles, badge: "NEW" }, { label: "Reports", icon: FileText }, { label: "Team & access", icon: Users }];
 
 function severityLabel(value: string) { return value.charAt(0).toUpperCase() + value.slice(1); }
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function Sidebar({ open, onClose, user, mode, onLogout }: { open: boolean; onClose: () => void; user: SessionUser; mode: "mongodb" | "demo"; onLogout: () => void }) {
   return <><div className={`mobile-scrim ${open ? "show" : ""}`} onClick={onClose} /><aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
     <div className="brand"><div className="brand-mark"><Activity size={19} strokeWidth={2.4} /></div><div><div className="brand-name">TraceMind<span>AI</span></div><div className="brand-caption">INCIDENT COMMAND</div></div><button className="icon-button sidebar-close" aria-label="Close navigation" onClick={onClose}><X size={18}/></button></div>
     <button className="workspace"><span className="workspace-avatar">A</span><span className="workspace-info"><b>Acme Production</b><small>Enterprise workspace</small></span><ChevronDown size={15}/></button>
     <div className="side-scroll"><div className="nav-label">WORKSPACE</div>{navMain.map((item) => <button key={item.label} className={`nav-item ${item.label === "Overview" ? "active" : ""}`}><item.icon size={17}/><span>{item.label}</span>{item.count && <i>{item.count}</i>}</button>)}
       <div className="nav-label tools-label">INVESTIGATE</div>{navTools.map((item) => <button key={item.label} className="nav-item"><item.icon size={17}/><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</button>)}
-      <div className="nav-label tools-label">CONNECTED</div><div className="connection"><span className="connection-dot"/><span>Production cluster</span><small>Healthy</small></div><div className="connection"><span className="connection-dot purple"/><span>OpenAI API</span><small>Connected</small></div>
+      <div className="nav-label tools-label">DATA MODE</div><div className="connection"><span className={`connection-dot ${mode === "mongodb" ? "" : "purple"}`}/><span>{mode === "mongodb" ? "MongoDB connected" : "Demo data store"}</span><small>{mode === "mongodb" ? "Live" : "Local"}</small></div><div className="connection"><span className="connection-dot purple"/><span>AI analysis</span><small>Demo</small></div>
     </div>
-    <div className="sidebar-bottom"><button className="nav-item"><Settings2 size={17}/><span>Settings</span></button><button className="nav-item"><CircleHelp size={17}/><span>Help center</span><ExternalLink size={13} className="external"/></button><div className="profile"><div className="profile-avatar">AC</div><div className="profile-info"><b>Alex Chen</b><small>Platform engineer</small></div><MoreHorizontal size={18}/></div></div>
+    <div className="sidebar-bottom"><button className="nav-item"><Settings2 size={17}/><span>Settings</span></button><button className="nav-item"><CircleHelp size={17}/><span>Help center</span><ExternalLink size={13} className="external"/></button><div className="profile"><div className="profile-avatar">{user.name.slice(0,2).toUpperCase()}</div><div className="profile-info"><b>{user.name}</b><small>{severityLabel(user.role)}</small></div><button className="profile-logout" aria-label="Sign out" onClick={onLogout}><LogOut size={15}/></button></div></div>
   </aside></>;
 }
 
 function SeverityBadge({ severity }: { severity: Severity }) { return <span className={`severity severity-${severity}`}><span/> {severityLabel(severity)}</span>; }
 
+function LoginPage({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
+  const [registering, setRegistering] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("admin@tracemind.local");
+  const [password, setPassword] = useState("TraceMindDemo!2026");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showDemo, setShowDemo] = useState(true);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError("");
+    try { onAuthenticated(registering ? await signUp(name, email, password) : await signIn(email, password)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to sign in. Check that the API is running."); }
+    finally { setBusy(false); }
+  }
+  return <main className="auth-screen"><div className="auth-backdrop"/><section className="auth-card"><div className="auth-brand"><div className="brand-mark"><Activity size={20}/></div><div><div className="brand-name">TraceMind<span>AI</span></div><div className="brand-caption">INCIDENT COMMAND</div></div></div><div className="auth-kicker"><LockKeyhole size={13}/> SECURE WORKSPACE</div><h1>{registering ? "Create your account" : "Welcome back"}</h1><p className="auth-subtitle">{registering ? "Join your team’s incident response workspace." : "Sign in to continue to your incident command center."}</p>
+    <form onSubmit={submit} className="auth-form">{registering && <label>Full name<input autoComplete="name" value={name} onChange={(event)=>setName(event.target.value)} placeholder="Alex Chen" required minLength={2} maxLength={80}/></label>}<label>Email address<span className="auth-input"><Mail size={15}/><input type="email" autoComplete="username" value={email} onChange={(event)=>setEmail(event.target.value)} placeholder="you@company.com" required maxLength={254}/></span></label><label>Password<input type="password" autoComplete={registering?"new-password":"current-password"} value={password} onChange={(event)=>setPassword(event.target.value)} required minLength={registering?12:1} maxLength={72} placeholder="Enter your password"/></label>{error && <div className="auth-error" role="alert">{error}</div>}<button className="auth-submit" disabled={busy}>{busy ? "Please wait…" : registering ? "Create account" : "Sign in"}<ChevronRight size={16}/></button></form>
+    {showDemo && !registering && <div className="demo-credentials"><div><ShieldCheck size={14}/><b>Ready-to-use demo account</b></div><span>admin@tracemind.local</span><span>TraceMindDemo!2026</span><button onClick={()=>setShowDemo(false)}>Hide demo credentials</button></div>}
+    <div className="auth-switch">{registering?"Already have an account?":"New to TraceMind?"}<button onClick={()=>{setRegistering(!registering);setError("");if(!registering){setEmail("");setPassword("");}}}>{registering?"Sign in":"Create an analyst account"}</button></div><div className="auth-foot"><span><i/> Protected with secure sessions</span><span>TraceMind AI · Demo environment</span></div></section></main>;
+}
+
 function App() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [mode, setMode] = useState<"loading" | "api" | "demo">("loading");
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [mode, setMode] = useState<"loading" | "mongodb" | "demo">("loading");
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState("All severities");
   const [selected, setSelected] = useState("INC-2847");
   const [mobileNav, setMobileNav] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  useEffect(() => { getIncidents().then((result) => { setIncidents(result.data); setMode(result.mode); }); }, []);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [uploadNotice, setUploadNotice] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  useEffect(() => { getCurrentUser().then((current) => { setSession(current); setMode(current?.mode ?? "demo"); }).catch(() => { setSession(null); setMode("demo"); }).finally(() => setAuthReady(true)); }, []);
+  useEffect(() => { if (!session) return; getIncidents().then((result) => { setIncidents(result.data); setMode(result.mode); }).catch((error) => { if ((error as { status?: number }).status === 401) setSession(null); else { setIncidents([]); setMode("demo"); } }); }, [session]);
+  async function handleLogout() { await signOut().catch(() => undefined); setSession(null); setIncidents([]); setUploadNotice(""); }
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
+    setUploadError(""); setUploadNotice("");
+    try { const result = await uploadLog(file, selectedIncident?.id); setUploadNotice(`${result.data.source.originalName} · ${result.data.stored.toLocaleString()} lines parsed and redacted`); }
+    catch (error) { setUploadError(error instanceof Error ? error.message : "Upload failed. Check the file and try again."); }
+  }
   const visible = useMemo(() => incidents.filter((item) => `${item.id} ${item.title} ${item.service}`.toLowerCase().includes(search.toLowerCase()) && (severity === "All severities" || item.severity === severity.toLowerCase())), [incidents, search, severity]);
   const activeCount = incidents.filter((item) => item.status !== "resolved").length;
   const selectedIncident = incidents.find((item) => item.id === selected) ?? incidents[0];
 
-  return <div className="app-shell"><Sidebar open={mobileNav} onClose={() => setMobileNav(false)} />
+  if (!authReady) return <main className="auth-screen"><div className="auth-card auth-loading"><div className="brand-mark"><Activity size={20}/></div><span>Connecting to TraceMind…</span></div></main>;
+  if (!session) return <LoginPage onAuthenticated={(authenticated) => { setSession(authenticated); setMode(authenticated.mode); }} />;
+
+  return <div className="app-shell"><Sidebar open={mobileNav} onClose={() => setMobileNav(false)} user={session.user} mode={mode === "mongodb" ? "mongodb" : "demo"} onLogout={handleLogout} />
     <main className="main-shell">
-      <header className="topbar"><div className="topbar-left"><button className="icon-button menu-button" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <ChevronRight size={14}/> <b>Overview</b></div><div className="env-pill"><span/> PROD</div>{mode === "demo" && <div className="demo-pill">DEMO DATA</div>}</div><div className="topbar-actions"><div className="last-sync"><span/> All systems operational</div><button className="icon-button search-shortcut" aria-label="Search" onClick={() => document.getElementById("incident-search")?.focus()}><Search size={17}/><kbd>⌘ K</kbd></button><button className="icon-button notifications" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">AC</div></div></header>
+      <header className="topbar"><div className="topbar-left"><button className="icon-button menu-button" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <ChevronRight size={14}/> <b>Overview</b></div><div className="env-pill"><span/> {mode === "mongodb" ? "DB LIVE" : "DEMO"}</div>{mode === "demo" && <div className="demo-pill">DEMO DATA</div>}</div><div className="topbar-actions"><div className="last-sync"><span/> All systems operational</div><button className="icon-button search-shortcut" aria-label="Search" onClick={() => document.getElementById("incident-search")?.focus()}><Search size={17}/><kbd>⌘ K</kbd></button><button className="icon-button notifications" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">{session.user.name.slice(0,2).toUpperCase()}</div></div></header>
       <div className="page-content">
-        <section className="page-heading"><div><div className="eyebrow"><span className="pulse-dot"/> LIVE OPERATIONS</div><h1>Good afternoon, Alex <span>✳</span></h1><p>Here’s what’s happening across your infrastructure today.</p></div><div className="heading-actions"><button className="btn btn-secondary"><span className="period-dot"/> Last 24 hours <ChevronDown size={15}/></button><button className="btn btn-primary"><UploadCloud size={16}/> Analyze logs</button></div></section>
+        <section className="page-heading"><div><div className="eyebrow"><span className="pulse-dot"/> LIVE OPERATIONS</div><h1>Good afternoon, {session.user.name.split(" ")[0]} <span>✳</span></h1><p>Here’s what’s happening across your infrastructure today.</p></div><div className="heading-actions"><button className="btn btn-secondary"><span className="period-dot"/> Last 24 hours <ChevronDown size={15}/></button>{session.user.role !== "viewer" && <button className="btn btn-primary" onClick={() => uploadRef.current?.click()}><UploadCloud size={16}/> Analyze logs</button>}<input ref={uploadRef} type="file" hidden accept=".log,.txt,.json,.jsonl,.ndjson" onChange={handleUpload}/></div></section>
+        {(uploadNotice || uploadError) && <div className={`upload-notice ${uploadError ? "upload-failed" : ""}`} role={uploadError ? "alert" : "status"}>{uploadError || uploadNotice}<button aria-label="Dismiss upload message" onClick={() => { setUploadNotice(""); setUploadError(""); }}><X size={14}/></button></div>}
         <section className="metric-grid" aria-label="Incident metrics">
           <Metric label="Active incidents" value={activeCount.toString().padStart(2,"0")} trend="2 resolved today" icon={Activity} accent="blue" change="−18%" positive/>
           <Metric label="Critical alerts" value="01" trend="Needs immediate attention" icon={Bell} accent="red" change="+1"/>

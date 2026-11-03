@@ -1,0 +1,49 @@
+# Day 2 setup: accounts, sessions, storage, and logs
+
+## Run the application in demo mode
+
+From the repository root:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` and sign in with the demo-only account:
+
+- Email: `admin@tracemind.local`
+- Password: `TraceMindDemo!2026`
+
+The demo account is enabled only outside production. In production, set `DEMO_MODE=false`, provide a unique strong `JWT_SECRET` (at least 32 characters), and connect MongoDB. Session JWTs are delivered in `HttpOnly`, `SameSite=Lax` cookies; browser JavaScript does not persist the token. Sessions expire after eight hours and are revoked server-side on sign out.
+
+## Connect MongoDB Atlas
+
+1. Create an Atlas project and development cluster.
+2. Create a database user and allow-list the machine IP that runs the API.
+3. In **Connect → Drivers → Node.js**, copy the URI and replace its password placeholder. URL-encode special characters in the password.
+4. Copy `.env.example` to `.env` and set `MONGODB_URI`. Keep `.env` untracked. The API refuses to claim production storage if the database connection failed.
+5. Restart `npm run dev`. `/api/health` reports `mode: mongodb` only after a successful connection. Demo incidents are inserted idempotently. New users, incidents, uploaded log sources, parsed lines, and audit records use MongoDB.
+
+MongoDB Atlas user credentials are not the same as the Atlas login. Restrict network access to the API host; do not use `0.0.0.0/0` for production.
+
+## Add a production administrator
+
+Create a one-off `.env` containing `MONGODB_URI`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`, then run:
+
+```powershell
+npm --workspace apps/api run seed:demo
+```
+
+The script inserts the sample incidents idempotently and creates an administrator only if that email is unused. It will not overwrite an existing password. Remove `ADMIN_PASSWORD` from the environment after seeding. New self-registered accounts receive the `analyst` role; only an administrator can create users with the `admin`, `analyst`, or `viewer` role.
+
+## Upload logs
+
+Sign in as the demo administrator or an analyst, select **Analyze logs**, and choose one `.log`, `.txt`, `.json`, `.jsonl`, or `.ndjson` file. Uploads are streamed, limited by `MAX_UPLOAD_MB` (default 25 MB), one file per request, 64 KiB per line, and 100,000 lines. Parsed log records retain their source line number. Supported structured fields include common timestamp, severity, service, and Kubernetes event keys.
+
+Sensitive values matching authorization bearer headers, password/token/secret/API-key fields, OpenAI-style keys, and MongoDB credential URIs are redacted before records are stored. The server never sends uploaded content to an external AI service during Day 2. Demo-mode logs and audit events are in memory and are cleared when the API process restarts; MongoDB mode persists records. Audit events are available at `GET /api/audit` to administrators only.
+
+`OPENAI_API_KEY` is not consumed yet; the AI and RAG connection is scheduled for Day 3. Adding it to `.env` now will not trigger model calls.
+
+`OPENAI_API_KEY` is not consumed yet; the AI and RAG connection is scheduled for Day 3. Adding it to `.env` now will not trigger model calls.
+
+Never put real credentials in this file or Git. API secrets stay in local `.env`; GitHub Actions secrets will be configured separately when the deployment workflow is added.

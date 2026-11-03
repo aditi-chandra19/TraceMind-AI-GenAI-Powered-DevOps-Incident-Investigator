@@ -1,41 +1,38 @@
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import express, { type ErrorRequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
-import { z } from "zod";
-import { demoIncidents } from "./data/incidents.js";
+import { authRouter } from "./routes/auth.js";
+import { auditRouter } from "./routes/audit.js";
+import { incidentRouter } from "./routes/incidents.js";
+import { logRouter } from "./routes/logs.js";
+import { requireAuth } from "./middleware/auth.js";
+import { listIncidents } from "./services/incidents.js";
+import { databaseReady } from "./services/memoryStore.js";
+import { maxUploadMb } from "./config/limits.js";
 
 export const app = express();
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173" }));
+app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173", credentials: true }));
 app.use(express.json({ limit: "1mb" }));
-app.use(pinoHttp({ level: process.env.NODE_ENV === "test" ? "silent" : "info" }));
+app.use(cookieParser());
+app.use(pinoHttp({ level: process.env.NODE_ENV === "test" ? "silent" : "info", redact: { paths: ["req.headers.authorization", "req.headers.cookie", "req.headers.set-cookie"], censor: "[REDACTED]" } }));
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-8", legacyHeaders: false }));
 
-app.get("/api/health", (_req, res) => res.json({ status: "ok", mode: "demo", timestamp: new Date().toISOString() }));
-
-const querySchema = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(10), search: z.string().trim().max(120).optional(), severity: z.enum(["critical", "high", "medium", "low"]).optional(), status: z.enum(["investigating", "identified", "monitoring", "resolved"]).optional() });
-app.get("/api/incidents", (req, res, next) => {
-  const parsed = querySchema.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
+app.get("/api/health", (_req, res) => res.json({ status: "ok", mode: databaseReady() ? "mongodb" : "demo", timestamp: new Date().toISOString(), limits: { maxUploadMb } }));
+app.use("/api/auth", authRouter);
+app.use("/api/audit", auditRouter);
+app.use("/api/incidents", incidentRouter);
+app.use("/api/logs", logRouter);
+app.get("/api/overview", requireAuth, async (_req, res, next) => {
   try {
-    const { page, limit, search, severity, status } = parsed.data;
-    const needle = search?.toLowerCase();
-    const filtered = demoIncidents.filter((incident) => (!severity || incident.severity === severity) && (!status || incident.status === status) && (!needle || `${incident.id} ${incident.title} ${incident.service}`.toLowerCase().includes(needle)));
-    const start = (page - 1) * limit;
-    return res.json({ data: filtered.slice(start, start + limit), pagination: { page, limit, total: filtered.length, pages: Math.ceil(filtered.length / limit) }, mode: "demo" });
+    const result = await listIncidents({ page: 1, limit: 100 });
+    const active = result.data.filter((incident) => incident.status !== "resolved");
+    return res.json({ data: { active: active.length, critical: active.filter((incident) => incident.severity === "critical").length, affectedUsers: "3.6k", mttr: "42m", incidents: result.data }, mode: databaseReady() ? "mongodb" : "demo" });
   } catch (error) { return next(error); }
-});
-app.get("/api/incidents/:id", (req, res) => {
-  const incident = demoIncidents.find((item) => item.id === req.params.id);
-  if (!incident) return res.status(404).json({ error: "Incident not found" });
-  return res.json({ data: incident, mode: "demo" });
-});
-app.get("/api/overview", (_req, res) => {
-  const active = demoIncidents.filter((incident) => incident.status !== "resolved");
-  res.json({ data: { active: active.length, critical: active.filter((incident) => incident.severity === "critical").length, affectedUsers: "3.6k", mttr: "42m", incidents: demoIncidents } });
 });
 
 app.use(((error: unknown, req, res, _next) => {
