@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { getCurrentUser, signIn } from './api';
+import { getCurrentUser, getRuntimeMode, signIn } from './api';
 
 vi.mock('./api', async () => {
   const { demoIncidents } = await import('./data/demo');
@@ -15,6 +15,7 @@ vi.mock('./api', async () => {
       },
       mode: 'demo' as const,
     })),
+    getRuntimeMode: vi.fn(async () => 'demo' as const),
     getIncidents: vi.fn(async () => ({ data: demoIncidents, mode: 'demo' as const })),
     signIn: vi.fn(async () => ({
       user: {
@@ -51,6 +52,16 @@ describe('TraceMind dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Recent incidents')).toBeInTheDocument();
     expect(signIn).toHaveBeenCalledWith('admin@tracemind.local', 'TraceMindDemo!2026');
+  });
+
+  it('does not show demo credentials for a MongoDB workspace', async () => {
+    vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
+    vi.mocked(getRuntimeMode).mockResolvedValueOnce('mongodb');
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Welcome back' });
+    expect(screen.queryByText('Ready-to-use demo account')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toHaveValue('');
+    expect(screen.getByText('TraceMind AI · MongoDB workspace')).toBeInTheDocument();
   });
 
   it('filters incident rows by search text', async () => {

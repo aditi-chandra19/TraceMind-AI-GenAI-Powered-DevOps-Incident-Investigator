@@ -45,6 +45,11 @@ export async function getCurrentUser(): Promise<Session | null> {
   }
 }
 
+export async function getRuntimeMode(): Promise<Session['mode']> {
+  const result = await request<{ mode: Session['mode'] }>('/health');
+  return result.mode;
+}
+
 export async function signIn(email: string, password: string): Promise<Session> {
   const result = await request<{ data: { user: SessionUser }; mode: Session['mode'] }>(
     '/auth/login',

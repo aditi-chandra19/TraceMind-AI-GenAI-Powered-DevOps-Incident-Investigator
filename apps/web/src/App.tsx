@@ -30,7 +30,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { getCurrentUser, getIncidents, signOut, uploadLog, type Session } from './api';
+import {
+  getCurrentUser,
+  getIncidents,
+  getRuntimeMode,
+  signOut,
+  uploadLog,
+  type Session,
+} from './api';
 import type { Incident, Severity } from './types';
 import { Sidebar, severityLabel } from './components/Sidebar';
 import { SeverityBadge } from './components/SeverityBadge';
@@ -66,14 +73,14 @@ function App() {
   const [uploadNotice, setUploadNotice] = useState('');
   const [uploadError, setUploadError] = useState('');
   useEffect(() => {
-    getCurrentUser()
-      .then((current) => {
+    Promise.all([getCurrentUser(), getRuntimeMode()])
+      .then(([current, runtimeMode]) => {
         setSession(current);
-        setMode(current?.mode ?? 'demo');
+        setMode(current?.mode ?? runtimeMode);
       })
       .catch(() => {
         setSession(null);
-        setMode('demo');
+        setMode('mongodb');
       })
       .finally(() => setAuthReady(true));
   }, []);
@@ -141,6 +148,7 @@ function App() {
   if (!session)
     return (
       <LoginPage
+        mode={mode === 'demo' ? 'demo' : 'mongodb'}
         onAuthenticated={(authenticated) => {
           setSession(authenticated);
           setMode(authenticated.mode);

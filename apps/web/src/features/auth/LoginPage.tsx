@@ -2,14 +2,20 @@ import { useState, type FormEvent } from 'react';
 import { Activity, ChevronRight, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { signIn, signUp, type Session } from '../../api';
 
-export function LoginPage({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
+export function LoginPage({
+  mode,
+  onAuthenticated,
+}: {
+  mode: 'mongodb' | 'demo';
+  onAuthenticated: (session: Session) => void;
+}) {
   const [registering, setRegistering] = useState(false);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('admin@tracemind.local');
-  const [password, setPassword] = useState('TraceMindDemo!2026');
+  const [email, setEmail] = useState(mode === 'demo' ? 'admin@tracemind.local' : '');
+  const [password, setPassword] = useState(mode === 'demo' ? 'TraceMindDemo!2026' : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showDemo, setShowDemo] = useState(true);
+  const [showDemo, setShowDemo] = useState(mode === 'demo');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -135,7 +141,9 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: (session: Sess
           <span>
             <i /> Protected with secure sessions
           </span>
-          <span>TraceMind AI · Demo environment</span>
+          <span>
+            TraceMind AI · {mode === 'mongodb' ? 'MongoDB workspace' : 'Demo environment'}
+          </span>
         </div>
       </section>
     </main>
