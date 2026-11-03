@@ -15,6 +15,35 @@ export interface Session {
 export interface ApiError extends Error {
   status: number;
 }
+export interface LogSource {
+  _id?: string;
+  id?: string;
+  originalName: string;
+  sizeBytes: number;
+  lineCount: number;
+  incidentId?: string;
+  redacted: boolean;
+  format: string;
+  createdAt: string;
+}
+export interface LogEntry {
+  _id?: string;
+  id?: string;
+  lineNumber: number;
+  timestamp?: string;
+  level?: string;
+  service?: string;
+  message: string;
+}
+export interface WorkspaceMember {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: SessionUser['role'];
+  disabled?: boolean;
+  createdAt?: string;
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -93,4 +122,32 @@ export async function uploadLog(file: File, incidentId?: string) {
     };
     mode: 'mongodb' | 'demo';
   }>(`/logs/upload${suffix}`, { method: 'POST', body: form });
+}
+
+export async function getLogSources(): Promise<LogSource[]> {
+  const result = await request<{ data: LogSource[] }>('/logs/sources?limit=50');
+  return result.data;
+}
+
+export async function getLogEntries(sourceId: string): Promise<LogEntry[]> {
+  const result = await request<{ data: LogEntry[] }>(
+    `/logs/sources/${encodeURIComponent(sourceId)}/entries?limit=100`,
+  );
+  return result.data;
+}
+
+export async function getWorkspaceMembers(): Promise<WorkspaceMember[]> {
+  const result = await request<{ data: WorkspaceMember[] }>('/auth/users');
+  return result.data;
+}
+
+export async function updateIncidentStatus(
+  incidentId: string,
+  status: Incident['status'],
+): Promise<Incident> {
+  const result = await request<{ data: Incident }>(
+    `/incidents/${encodeURIComponent(incidentId)}/status`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+  );
+  return result.data;
 }

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { getCurrentUser, getRuntimeMode, signIn } from './api';
+import { getCurrentUser, getLogSources, getRuntimeMode, signIn, updateIncidentStatus } from './api';
 
 vi.mock('./api', async () => {
   const { demoIncidents } = await import('./data/demo');
@@ -16,6 +16,15 @@ vi.mock('./api', async () => {
       mode: 'demo' as const,
     })),
     getRuntimeMode: vi.fn(async () => 'demo' as const),
+    getLogSources: vi.fn(async () => []),
+    getLogEntries: vi.fn(async () => []),
+    getWorkspaceMembers: vi.fn(async () => []),
+    updateIncidentStatus: vi.fn(
+      async (id: string, status: 'investigating' | 'identified' | 'monitoring' | 'resolved') => {
+        const incident = demoIncidents.find((item) => item.id === id)!;
+        return { ...incident, status };
+      },
+    ),
     getIncidents: vi.fn(async () => ({ data: demoIncidents, mode: 'demo' as const })),
     signIn: vi.fn(async () => ({
       user: {
@@ -82,5 +91,54 @@ describe('TraceMind dashboard', () => {
     const table = screen.getByRole('table');
     await waitFor(() => expect(within(table).getByText('INC-2847')).toBeInTheDocument());
     expect(within(table).queryByText('INC-2846')).not.toBeInTheDocument();
+  });
+
+  it('opens the log explorer and reports an empty state from the API', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    fireEvent.click(screen.getByRole('button', { name: 'Log explorer' }));
+    expect(await screen.findByRole('dialog', { name: 'Log explorer' })).toBeInTheDocument();
+    expect(await screen.findByText(/No log files yet/)).toBeInTheDocument();
+    expect(getLogSources).toHaveBeenCalledOnce();
+  });
+
+  it('saves the alert threshold from settings', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Alert settings' });
+    fireEvent.change(within(dialog).getByLabelText('Notify me for incidents at or above'), {
+      target: { value: 'critical' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save alert threshold' }));
+    expect(await screen.findByText('Alert threshold saved on this browser.')).toBeInTheDocument();
+    expect(localStorage.getItem('tracemind-alert-severity')).toBe('critical');
+  });
+
+  it('updates an incident status from its investigation', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for INC-2847' }));
+    fireEvent.click(
+      within(screen.getByRole('table')).getByRole('button', { name: 'Open investigation' }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Incident investigation' });
+    fireEvent.change(within(dialog).getByLabelText('Update incident status'), {
+      target: { value: 'monitoring' },
+    });
+    await waitFor(() =>
+      expect(updateIncidentStatus).toHaveBeenCalledWith('INC-2847', 'monitoring'),
+    );
+    expect(await screen.findByText('INC-2847 status updated to Monitoring.')).toBeInTheDocument();
+  });
+
+  it('changes the chart range and flips to the next incident page', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    fireEvent.click(screen.getByRole('button', { name: /Last 24 hours/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Last 7 days' }));
+    expect(screen.getByRole('button', { name: /Last 7 days/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('INC-2844')).toBeInTheDocument();
   });
 });

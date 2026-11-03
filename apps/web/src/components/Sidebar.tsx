@@ -39,13 +39,17 @@ export function Sidebar({
   onClose,
   user,
   mode,
+  active,
   onLogout,
+  onNavigate,
 }: {
   open: boolean;
   onClose: () => void;
   user: SessionUser;
   mode: 'mongodb' | 'demo';
+  active: string;
   onLogout: () => void;
+  onNavigate: (label: string) => void;
 }) {
   return (
     <>
@@ -67,7 +71,7 @@ export function Sidebar({
             <X size={18} />
           </button>
         </div>
-        <button className="workspace">
+        <button className="workspace" onClick={() => onNavigate('Workspace')}>
           <span className="workspace-avatar">A</span>
           <span className="workspace-info">
             <b>Acme Production</b>
@@ -80,7 +84,8 @@ export function Sidebar({
           {navMain.map((item) => (
             <button
               key={item.label}
-              className={`nav-item ${item.label === 'Overview' ? 'active' : ''}`}
+              className={`nav-item ${item.label === active ? 'active' : ''}`}
+              onClick={() => onNavigate(item.label)}
             >
               <item.icon size={17} />
               <span>{item.label}</span>
@@ -89,7 +94,11 @@ export function Sidebar({
           ))}
           <div className="nav-label tools-label">INVESTIGATE</div>
           {navTools.map((item) => (
-            <button key={item.label} className="nav-item">
+            <button
+              key={item.label}
+              className={`nav-item ${item.label === active ? 'active' : ''}`}
+              onClick={() => onNavigate(item.label)}
+            >
               <item.icon size={17} />
               <span>{item.label}</span>
               {item.badge && <em>{item.badge}</em>}
@@ -108,11 +117,17 @@ export function Sidebar({
           </div>
         </div>
         <div className="sidebar-bottom">
-          <button className="nav-item">
+          <button
+            className={`nav-item ${active === 'Settings' ? 'active' : ''}`}
+            onClick={() => onNavigate('Settings')}
+          >
             <Settings2 size={17} />
             <span>Settings</span>
           </button>
-          <button className="nav-item">
+          <button
+            className={`nav-item ${active === 'Help center' ? 'active' : ''}`}
+            onClick={() => onNavigate('Help center')}
+          >
             <CircleHelp size={17} />
             <span>Help center</span>
             <ExternalLink size={13} className="external" />
