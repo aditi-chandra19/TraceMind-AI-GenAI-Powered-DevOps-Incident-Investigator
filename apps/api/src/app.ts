@@ -14,7 +14,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ level: process.env.NODE_ENV === "test" ? "silent" : "info" }));
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-8", legacyHeaders: false }));
 
-app.get("/api/health", (_req, res) => res.json({ status: "ok", mode: process.env.MONGODB_URI ? "ready" : "demo", timestamp: new Date().toISOString() }));
+app.get("/api/health", (_req, res) => res.json({ status: "ok", mode: "demo", timestamp: new Date().toISOString() }));
 
 const querySchema = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(10), search: z.string().trim().max(120).optional(), severity: z.enum(["critical", "high", "medium", "low"]).optional(), status: z.enum(["investigating", "identified", "monitoring", "resolved"]).optional() });
 app.get("/api/incidents", (req, res, next) => {
