@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { SessionUser } from '../api';
 import type { Severity } from '../types';
+import { BrandMark } from './BrandMark';
 
 const navMain = [
   { label: 'Overview', icon: LayoutDashboard },
@@ -51,9 +52,7 @@ export function Sidebar({
       <div className={`mobile-scrim ${open ? 'show' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">
-            <Activity size={19} strokeWidth={2.4} />
-          </div>
+          <BrandMark size={38} />
           <div>
             <div className="brand-name">
               TraceMind<span>AI</span>
