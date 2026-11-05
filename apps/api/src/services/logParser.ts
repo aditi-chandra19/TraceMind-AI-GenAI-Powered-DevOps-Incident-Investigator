@@ -27,6 +27,15 @@ export function redactSecrets(input: string): string {
   return safe;
 }
 
+export function redactSensitiveForExternalAi(input: string): string {
+  return redactSecrets(input)
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]')
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[REDACTED_IP]')
+    .replace(/\+\d{1,3}[ .-]\d{5}[ .-]\d{5}\b/g, '[REDACTED_PHONE]')
+    .replace(/\b(?:\+?1[ .-])?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b/g, '[REDACTED_PHONE]')
+    .replace(/\b(?:\d[ -]?){13,19}\b/g, '[REDACTED_CARD]');
+}
+
 function normalizeLevel(input: unknown): string | undefined {
   if (typeof input !== 'string') return undefined;
   const value = input.trim().toLowerCase();

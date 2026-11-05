@@ -1,7 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { getCurrentUser, getLogSources, getRuntimeMode, signIn, updateIncidentStatus } from './api';
+import {
+  analyzeLogSource,
+  getCurrentUser,
+  getLogEntries,
+  getLogSources,
+  getRuntimeMode,
+  signIn,
+  updateIncidentStatus,
+} from './api';
 
 vi.mock('./api', async () => {
   const { demoIncidents } = await import('./data/demo');
@@ -17,6 +25,7 @@ vi.mock('./api', async () => {
     })),
     getRuntimeMode: vi.fn(async () => 'demo' as const),
     getLogSources: vi.fn(async () => []),
+    analyzeLogSource: vi.fn(),
     getLogEntries: vi.fn(async () => []),
     getWorkspaceMembers: vi.fn(async () => []),
     updateIncidentStatus: vi.fn(
@@ -100,6 +109,66 @@ describe('TraceMind dashboard', () => {
     expect(await screen.findByRole('dialog', { name: 'Log explorer' })).toBeInTheDocument();
     expect(await screen.findByText(/No log files yet/)).toBeInTheDocument();
     expect(getLogSources).toHaveBeenCalledOnce();
+  });
+
+  it('shows a log analysis report with source line citations', async () => {
+    vi.mocked(getLogSources).mockResolvedValueOnce([
+      {
+        id: 'demo-source-1',
+        originalName: 'checkout.log',
+        sizeBytes: 120,
+        lineCount: 2,
+        redacted: true,
+        format: 'text',
+        createdAt: '2026-11-05T10:00:00.000Z',
+      },
+    ]);
+    vi.mocked(getLogEntries).mockResolvedValueOnce([
+      {
+        lineNumber: 1,
+        level: 'error',
+        service: 'checkout-api',
+        message: 'database connection pool exhausted',
+      },
+    ]);
+    vi.mocked(analyzeLogSource).mockResolvedValueOnce({
+      source: {
+        id: 'demo-source-1',
+        name: 'checkout.log',
+        totalLines: 2,
+        analyzedLines: 1,
+        truncated: false,
+      },
+      analysisMode: 'local-rules',
+      summary: 'Reviewed 1 parsed line; found one error pattern.',
+      severity: 'medium',
+      confidence: 39,
+      rootCauseHypothesis: 'Connection pool pressure is a possibility.',
+      errorClusters: [
+        { signature: 'database connection pool exhausted', count: 1, lineNumbers: [1] },
+      ],
+      stackTraceLineNumbers: [],
+      anomalies: [],
+      evidence: [
+        {
+          lineNumber: 1,
+          level: 'error',
+          service: 'checkout-api',
+          message: 'database connection pool exhausted',
+        },
+      ],
+      recommendations: ['Check connection saturation.'],
+    });
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    fireEvent.click(screen.getByRole('button', { name: 'Log explorer' }));
+    fireEvent.click(await screen.findByRole('button', { name: /checkout\.log/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Analyze this log source/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log investigation results' });
+    expect(within(dialog).getByText('Local rules')).toBeInTheDocument();
+    expect(within(dialog).getByText('Line 1 · error · checkout-api')).toBeInTheDocument();
+    expect(within(dialog).getByText('Check connection saturation.')).toBeInTheDocument();
+    expect(analyzeLogSource).toHaveBeenCalledWith('demo-source-1');
   });
 
   it('saves the alert threshold from settings', async () => {

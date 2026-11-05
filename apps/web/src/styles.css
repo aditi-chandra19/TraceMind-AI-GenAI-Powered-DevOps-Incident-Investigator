@@ -2618,6 +2618,115 @@ button.action-list-row {
   color: #99ada2;
   font-size: 10px;
 }
+.analysis-report {
+  display: grid;
+  gap: 15px;
+}
+.analysis-report-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #293140;
+}
+.analysis-report-heading > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.analysis-report-heading b {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.analysis-report-heading small {
+  color: #8a97aa;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.analysis-mode {
+  flex: 0 0 auto;
+  color: #9fafe9;
+  background: #202a43;
+  border: 1px solid #35466f;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.analysis-mode-openai {
+  color: #83ddbc;
+  background: #132c25;
+  border-color: #245342;
+}
+.analysis-mode-local-fallback {
+  color: #e3bd7b;
+  background: #302719;
+  border-color: #5a4727;
+}
+.analysis-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #252d3a;
+}
+.analysis-section h3,
+.analysis-section h4 {
+  margin: 0;
+  color: #e0e6f1;
+  font-size: 11px;
+}
+.analysis-section h4 {
+  margin-top: 3px;
+  color: #aebadc;
+  font-size: 10px;
+}
+.analysis-section p,
+.analysis-section li {
+  margin: 0;
+  color: #a3adbd;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.analysis-section ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+.analysis-severity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.analysis-severity > span:last-child {
+  color: #8793a7;
+  font-size: 9px;
+}
+.analysis-clusters {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.analysis-clusters li {
+  display: grid;
+  gap: 4px;
+  padding: 8px 9px;
+  border: 1px solid #293241;
+  border-radius: 6px;
+  background: #111720;
+  overflow-wrap: anywhere;
+}
+.analysis-clusters small {
+  color: #8492aa;
+  font-size: 8px;
+}
+.analysis-anomaly {
+  border-left: 2px solid #d4a65e;
+  padding-left: 8px;
+}
 @media (max-width: 600px) {
   .action-dialog-backdrop {
     padding: 10px;

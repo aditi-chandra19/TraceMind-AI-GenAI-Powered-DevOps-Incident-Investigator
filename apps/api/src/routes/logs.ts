@@ -15,6 +15,7 @@ import {
 import { databaseReady } from '../services/memoryStore.js';
 import { maxUploadBytes, maxUploadMb } from '../config/limits.js';
 import { writeAuditLog } from '../services/audit.js';
+import { analyzeLogSource, LogAnalysisError } from '../services/logAnalysis.js';
 
 export const logRouter = Router();
 logRouter.use(requireAuth);
@@ -30,6 +31,12 @@ class UploadError extends Error {
 const uploadLimit = rateLimit({
   windowMs: 15 * 60_000,
   limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
+const analysisLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: 20,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 });
@@ -161,3 +168,35 @@ logRouter.get('/sources/:id/entries', async (req: Request, res, next) => {
     return next(error);
   }
 });
+
+logRouter.post(
+  '/sources/:id/analyze',
+  analysisLimit,
+  requireRole('admin', 'analyst'),
+  async (req: Request, res, next) => {
+    const sourceId = Array.isArray(req.params.id)
+      ? (req.params.id[0] ?? '')
+      : (req.params.id ?? '');
+    try {
+      const analysis = await analyzeLogSource(sourceId);
+      await writeAuditLog({
+        actorId: req.principal!.id,
+        actorEmail: req.principal!.email,
+        action: 'log.analyze',
+        resourceType: 'log-source',
+        resourceId: sourceId,
+        details: {
+          analyzedLines: analysis.source.analyzedLines,
+          analysisMode: analysis.analysisMode,
+          severity: analysis.severity,
+          confidence: analysis.confidence,
+        },
+      });
+      return res.json({ data: analysis, mode: databaseReady() ? 'mongodb' : 'demo' });
+    } catch (error) {
+      if (error instanceof LogAnalysisError)
+        return res.status(error.status).json({ error: error.message });
+      return next(error);
+    }
+  },
+);

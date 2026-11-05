@@ -37,7 +37,9 @@ import {
   getRuntimeMode,
   signOut,
   uploadLog,
+  analyzeLogSource,
   type Session,
+  type LogAnalysis,
   getLogEntries,
   getLogSources,
   getWorkspaceMembers,
@@ -99,7 +101,8 @@ type PanelKind =
   | 'team'
   | 'settings'
   | 'help'
-  | 'profile';
+  | 'profile'
+  | 'analysis';
 const panelTitles: Record<PanelKind, string> = {
   notifications: 'Active notifications',
   workspace: 'Workspace',
@@ -113,6 +116,7 @@ const panelTitles: Record<PanelKind, string> = {
   settings: 'Alert settings',
   help: 'Help and support',
   profile: 'Account details',
+  analysis: 'Log investigation results',
 };
 
 function App() {
@@ -132,6 +136,7 @@ function App() {
   const [logSources, setLogSources] = useState<LogSource[]>([]);
   const [selectedLogSource, setSelectedLogSource] = useState<LogSource | null>(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const [logAnalysis, setLogAnalysis] = useState<LogAnalysis | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [incidentTab, setIncidentTab] = useState<IncidentTab>('all');
   const [page, setPage] = useState(1);
@@ -196,6 +201,19 @@ function App() {
     setIncidents([]);
     setUploadNotice('');
   }
+  async function runLogAnalysis(sourceId: string) {
+    setPanel('analysis');
+    setPanelError('');
+    setLogAnalysis(null);
+    setPanelLoading(true);
+    try {
+      setLogAnalysis(await analyzeLogSource(sourceId));
+    } catch (error) {
+      setPanelError(error instanceof Error ? error.message : 'Could not analyze this log source.');
+    } finally {
+      setPanelLoading(false);
+    }
+  }
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -208,6 +226,7 @@ function App() {
         `${result.data.source.originalName} · ${result.data.stored.toLocaleString()} lines parsed and redacted`,
       );
       if (panel === 'logs') setLogSources(await getLogSources());
+      await runLogAnalysis(result.data.source.id);
     } catch (error) {
       setUploadError(
         error instanceof Error ? error.message : 'Upload failed. Check the file and try again.',
@@ -1234,6 +1253,17 @@ function App() {
                         </p>
                       )}
                 </div>
+                {session.user.role !== 'viewer' && (
+                  <button
+                    className="dialog-primary"
+                    onClick={() =>
+                      void runLogAnalysis(selectedLogSource._id ?? selectedLogSource.id ?? '')
+                    }
+                    disabled={!selectedLogSource._id && !selectedLogSource.id}
+                  >
+                    <Sparkles size={15} /> Analyze this log source
+                  </button>
+                )}
               </div>
             ) : (
               <div className="action-list">
@@ -1278,6 +1308,101 @@ function App() {
                 )}
               </div>
             ))}
+          {panel === 'analysis' && logAnalysis && (
+            <div className="analysis-report">
+              <div className="analysis-report-heading">
+                <div>
+                  <b>{logAnalysis.source.name}</b>
+                  <small>
+                    Analyzed {logAnalysis.source.analyzedLines.toLocaleString()} of{' '}
+                    {logAnalysis.source.totalLines.toLocaleString()} lines
+                    {logAnalysis.source.truncated ? ' · sample limited to first 500 lines' : ''}
+                  </small>
+                </div>
+                <span className={`analysis-mode analysis-mode-${logAnalysis.analysisMode}`}>
+                  {logAnalysis.analysisMode === 'openai'
+                    ? 'OpenAI analysis'
+                    : logAnalysis.analysisMode === 'local-fallback'
+                      ? 'Local fallback'
+                      : 'Local rules'}
+                </span>
+              </div>
+              {logAnalysis.providerNotice && (
+                <p className="panel-feedback" role="status">
+                  {logAnalysis.providerNotice}
+                </p>
+              )}
+              <section className="analysis-section">
+                <h3>Assessment</h3>
+                <div className="analysis-severity">
+                  <SeverityBadge severity={logAnalysis.severity} />
+                  <span>{logAnalysis.confidence}% confidence · assessment, not certainty</span>
+                </div>
+                <p>{logAnalysis.summary}</p>
+                <h4>Root-cause hypothesis</h4>
+                <p>{logAnalysis.rootCauseHypothesis}</p>
+              </section>
+              <section className="analysis-section">
+                <h3>Error patterns</h3>
+                {logAnalysis.errorClusters.length ? (
+                  <ul className="analysis-clusters">
+                    {logAnalysis.errorClusters.map((cluster) => (
+                      <li key={cluster.signature}>
+                        <span>{cluster.signature}</span>
+                        <small>
+                          {cluster.count} match{cluster.count === 1 ? '' : 'es'} · lines{' '}
+                          {cluster.lineNumbers.join(', ')}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No error patterns were found in the analyzed sample.</p>
+                )}
+                {logAnalysis.anomalies.map((anomaly) => (
+                  <p className="analysis-anomaly" key={anomaly.description}>
+                    {anomaly.description} Evidence lines: {anomaly.lineNumbers.join(', ')}
+                  </p>
+                ))}
+                {!!logAnalysis.stackTraceLineNumbers.length && (
+                  <p className="panel-feedback">
+                    Stack-trace indicators at lines {logAnalysis.stackTraceLineNumbers.join(', ')}.
+                  </p>
+                )}
+              </section>
+              <section className="analysis-section">
+                <h3>Verified source evidence</h3>
+                {logAnalysis.evidence.length ? (
+                  <div className="log-entry-list">
+                    {logAnalysis.evidence.map((entry) => (
+                      <article key={entry.lineNumber}>
+                        <span>
+                          Line {entry.lineNumber}
+                          {entry.level ? ` · ${entry.level}` : ''}
+                          {entry.service ? ` · ${entry.service}` : ''}
+                        </span>
+                        <code>{entry.message}</code>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No source lines were cited for this assessment.</p>
+                )}
+              </section>
+              <section className="analysis-section">
+                <h3>Recommended checks</h3>
+                <ol>
+                  {logAnalysis.recommendations.map((recommendation, index) => (
+                    <li key={`${index}-${recommendation}`}>{recommendation}</li>
+                  ))}
+                </ol>
+                <p className="panel-feedback">
+                  Recommendations are advisory. A human must verify the cause and approve any
+                  remediation.
+                </p>
+              </section>
+            </div>
+          )}
           {panel === 'services' && (
             <div className="action-list">
               {Array.from(new Set(incidents.map((item) => item.service))).map((service) => {

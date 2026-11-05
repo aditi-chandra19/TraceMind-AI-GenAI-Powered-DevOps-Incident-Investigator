@@ -167,6 +167,15 @@ export async function listLogSources(limit: number) {
   return memorySources.slice(0, limit);
 }
 
+export async function getLogSource(sourceId: string) {
+  ensureStorageAvailable();
+  if (databaseReady()) {
+    if (!Types.ObjectId.isValid(sourceId)) return null;
+    return LogSourceModel.findById(sourceId).lean();
+  }
+  return memorySources.find((source) => source.id === sourceId) ?? null;
+}
+
 export async function listSourceLogs(sourceId: string, page: number, limit: number) {
   ensureStorageAvailable();
   if (databaseReady()) {

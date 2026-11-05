@@ -44,6 +44,26 @@ export interface WorkspaceMember {
   disabled?: boolean;
   createdAt?: string;
 }
+export interface LogAnalysis {
+  source: {
+    id: string;
+    name: string;
+    totalLines: number;
+    analyzedLines: number;
+    truncated: boolean;
+  };
+  analysisMode: 'openai' | 'local-rules' | 'local-fallback';
+  providerNotice?: string;
+  summary: string;
+  severity: Incident['severity'];
+  confidence: number;
+  rootCauseHypothesis: string;
+  errorClusters: { signature: string; count: number; lineNumbers: number[] }[];
+  stackTraceLineNumbers: number[];
+  anomalies: { description: string; lineNumbers: number[] }[];
+  evidence: LogEntry[];
+  recommendations: string[];
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -132,6 +152,14 @@ export async function getLogSources(): Promise<LogSource[]> {
 export async function getLogEntries(sourceId: string): Promise<LogEntry[]> {
   const result = await request<{ data: LogEntry[] }>(
     `/logs/sources/${encodeURIComponent(sourceId)}/entries?limit=100`,
+  );
+  return result.data;
+}
+
+export async function analyzeLogSource(sourceId: string): Promise<LogAnalysis> {
+  const result = await request<{ data: LogAnalysis }>(
+    `/logs/sources/${encodeURIComponent(sourceId)}/analyze`,
+    { method: 'POST' },
   );
   return result.data;
 }

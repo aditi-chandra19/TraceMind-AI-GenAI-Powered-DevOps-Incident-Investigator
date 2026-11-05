@@ -167,6 +167,18 @@ describe('TraceMind API', () => {
     expect(rows[1].message).toContain('password=[REDACTED]');
     expect(JSON.stringify(rows)).not.toContain('secret-token-123');
     expect(JSON.stringify(rows)).not.toContain('hunter2');
+    const analyzed = await fetch(`${base}/api/logs/sources/${result.source.id}/analyze`, {
+      method: 'POST',
+      headers: { cookie },
+    });
+    expect(analyzed.status).toBe(200);
+    const analysis = (await analyzed.json()).data;
+    expect(analysis.analysisMode).toBe('local-rules');
+    expect(analysis.errorClusters[0].lineNumbers).toContain(1);
+    expect(analysis.evidence.some((entry: { lineNumber: number }) => entry.lineNumber === 1)).toBe(
+      true,
+    );
+    expect(JSON.stringify(analysis)).not.toContain('secret-token-123');
   });
 
   it('rejects unsupported upload extensions', async () => {
