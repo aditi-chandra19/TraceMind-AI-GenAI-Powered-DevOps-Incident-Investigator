@@ -240,6 +240,11 @@ export async function analyzeLogSource(sourceId: string): Promise<LogAnalysis> {
       modelEvidenceNumbers = generated.evidenceLineNumbers.filter((line) =>
         existingLines.has(line),
       );
+      if (!modelEvidenceNumbers.length) {
+        confidence = Math.min(confidence, 25);
+        providerNotice =
+          'The model returned no valid source-line citations; treat its hypothesis as unverified.';
+      }
     } catch {
       analysisMode = 'local-fallback';
       providerNotice = 'OpenAI analysis was unavailable; this report uses local log rules.';

@@ -187,10 +187,10 @@ describe('TraceMind dashboard', () => {
   it('updates an incident status from its investigation', async () => {
     render(<App />);
     await screen.findByText('Recent incidents');
+    const table = screen.getByRole('table');
+    await within(table).findByText('INC-2847');
     fireEvent.click(screen.getByRole('button', { name: 'More actions for INC-2847' }));
-    fireEvent.click(
-      within(screen.getByRole('table')).getByRole('button', { name: 'Open investigation' }),
-    );
+    fireEvent.click(within(table).getByRole('button', { name: 'Open investigation' }));
     const dialog = await screen.findByRole('dialog', { name: 'Incident investigation' });
     fireEvent.change(within(dialog).getByLabelText('Update incident status'), {
       target: { value: 'monitoring' },

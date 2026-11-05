@@ -27,11 +27,12 @@ describe('evidence-backed log analysis', () => {
 
   it('removes secrets and common personal identifiers before external model calls', () => {
     const safe = redactSensitiveForExternalAi(
-      'user=alex@example.com from 203.0.113.8 phone +1 555 123 4567 access_token=super-secret-token',
+      'user=alex@example.com from 203.0.113.8 phone +1 555 123 4567 ssn=123-45-6789 access_token=super-secret-token',
     );
     expect(safe).not.toContain('alex@example.com');
     expect(safe).not.toContain('203.0.113.8');
     expect(safe).not.toContain('+1 555 123 4567');
+    expect(safe).not.toContain('123-45-6789');
     expect(safe).not.toContain('super-secret-token');
   });
 });

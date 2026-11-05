@@ -14,5 +14,11 @@ export default defineConfig({
       },
     },
   },
-  test: { environment: 'jsdom', setupFiles: './src/test-setup.ts' },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test-setup.ts',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    exclude: ['**/node_modules/**', '**/dist/**'],
+    testTimeout: 20_000,
+  },
 });
