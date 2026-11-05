@@ -55,6 +55,8 @@ import { MetricCard } from './components/MetricCard';
 import { LoginPage } from './features/auth/LoginPage';
 import { ActionDialog } from './components/ActionDialog';
 import { InvestigationChat } from './components/InvestigationChat';
+import { SimilarIncidents } from './components/SimilarIncidents';
+import { FeedbackInbox } from './components/FeedbackInbox';
 
 const trend = [
   { time: '09:00', current: 22, baseline: 19 },
@@ -103,6 +105,7 @@ type PanelKind =
   | 'settings'
   | 'help'
   | 'profile'
+  | 'reports'
   | 'analysis';
 const panelTitles: Record<PanelKind, string> = {
   notifications: 'Active notifications',
@@ -117,6 +120,7 @@ const panelTitles: Record<PanelKind, string> = {
   settings: 'Alert settings',
   help: 'Help and support',
   profile: 'Account details',
+  reports: 'Incident reports',
   analysis: 'Log investigation results',
 };
 
@@ -266,7 +270,7 @@ function App() {
     if (label === 'Services') setPanel('services');
     else if (label === 'Infrastructure') setPanel('infrastructure');
     else if (label === 'AI investigations') setPanel('investigation');
-    else if (label === 'Reports') downloadReport();
+    else if (label === 'Reports') setPanel('reports');
     else if (label === 'Team & access') {
       setPanel('team');
       setPanelLoading(true);
@@ -333,6 +337,57 @@ function App() {
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     setActionMessage('Incident report downloaded as Markdown.');
+  }
+  async function downloadPdfReport() {
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 48;
+    let y = 54;
+    const write = (
+      text: string,
+      size = 10,
+      bold = false,
+      color: [number, number, number] = [55, 66, 83],
+    ) => {
+      pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+      pdf.setFontSize(size);
+      pdf.setTextColor(...color);
+      const lines = pdf.splitTextToSize(text || ' ', pageWidth - margin * 2) as string[];
+      const lineHeight = size * 1.45;
+      if (y + lines.length * lineHeight > pageHeight - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+      pdf.text(lines, margin, y);
+      y += lines.length * lineHeight + 7;
+    };
+    write('TraceMind AI - Incident report', 19, true, [28, 42, 66]);
+    write(`Generated ${new Date().toLocaleString()} | ${incidents.length} incidents`, 9);
+    for (const incident of incidents) {
+      write(`${incident.id} - ${incident.title}`, 13, true, [46, 70, 129]);
+      write(
+        `${severityLabel(incident.severity)} | ${severityLabel(incident.status)} | ${incident.service}`,
+        9,
+        true,
+      );
+      write(`Root-cause hypothesis (${incident.confidence}% confidence): ${incident.rootCause}`);
+      write(incident.summary);
+      write('Timeline and evidence', 10, true);
+      if (incident.timeline.length) {
+        for (const event of incident.timeline)
+          write(`${event.time} - ${event.title}: ${event.detail}`, 9);
+      } else write('No timeline evidence is attached to this incident.', 9);
+    }
+    write(
+      'Hypotheses and recommendations require human review. TraceMind does not execute remediation.',
+      9,
+      true,
+      [40, 115, 96],
+    );
+    pdf.save(`tracemind-incident-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    setActionMessage('Incident report downloaded as PDF.');
   }
   function downloadChartCsv() {
     const rows = chartRanges[dateRange];
@@ -1113,6 +1168,23 @@ function App() {
               </button>
             </div>
           )}
+          {panel === 'reports' && (
+            <div className="reports-panel">
+              <p className="panel-feedback">
+                Export the current incident list. Root-cause statements are hypotheses and should be
+                reviewed by an operator.
+              </p>
+              <div className="report-actions">
+                <button className="dialog-primary" onClick={downloadPdfReport}>
+                  <FileText size={15} /> Download PDF
+                </button>
+                <button className="dialog-secondary" onClick={downloadReport}>
+                  <FileText size={15} /> Download Markdown
+                </button>
+              </div>
+              {session.user.role === 'admin' && <FeedbackInbox />}
+            </div>
+          )}
           {panel === 'workspace' && (
             <div className="workspace-details">
               <div className="workspace-avatar">A</div>
@@ -1204,6 +1276,11 @@ function App() {
                 The incident record does not include exact source-line citations yet. The cause
                 shown above is a hypothesis and must be reviewed by a person.
               </p>
+              <SimilarIncidents
+                key={selectedIncident.id}
+                incidentId={selectedIncident.id}
+                onSelect={setSelected}
+              />
               {session.user.role !== 'viewer' && (
                 <div className="dialog-actions">
                   <label htmlFor="incident-status">Update incident status</label>
@@ -1501,14 +1578,14 @@ function App() {
               <p className="panel-feedback">Quick links for this local TraceMind workspace.</p>
               <a
                 className="action-list-row"
-                href="https://github.com/aditi-chandra19/TraceMind-AI-GenAI-Powered-DevOps-Incident-Investigator/blob/main/docs/day2-setup.md"
+                href="https://github.com/aditi-chandra19/TraceMind-AI-GenAI-Powered-DevOps-Incident-Investigator/blob/main/README.md#start-here-windows--docker-desktop"
                 target="_blank"
                 rel="noreferrer"
               >
                 <Github size={16} />
                 <span>
                   <b>Setup guide</b>
-                  <small>Run the API, dashboard, and local database</small>
+                  <small>Setup, account, database, and usage instructions</small>
                 </span>
                 <ExternalLink size={14} />
               </a>

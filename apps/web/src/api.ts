@@ -86,6 +86,18 @@ export interface InvestigationTurn {
   role: 'user' | 'assistant';
   content: string;
 }
+export interface SimilarIncident {
+  incident: Incident;
+  similarityScore: number;
+  reasons: string[];
+}
+export interface InvestigationFeedbackEntry {
+  incidentId: string;
+  actorEmail: string;
+  rating: 'helpful' | 'not-helpful';
+  comment: string;
+  createdAt: string;
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -211,5 +223,31 @@ export async function sendInvestigationMessage(
     method: 'POST',
     body: JSON.stringify({ incidentId, message, history }),
   });
+  return result.data;
+}
+
+export async function getSimilarIncidents(incidentId: string): Promise<SimilarIncident[]> {
+  const result = await request<{ data: SimilarIncident[] }>(
+    `/incidents/${encodeURIComponent(incidentId)}/similar?limit=5`,
+  );
+  return result.data;
+}
+
+export async function submitInvestigationFeedback(input: {
+  incidentId: string;
+  rating: 'helpful' | 'not-helpful';
+  comment: string;
+}) {
+  const result = await request<{ data: { accepted: true; rating: 'helpful' | 'not-helpful' } }>(
+    '/investigations/feedback',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  return result.data;
+}
+
+export async function getInvestigationFeedback(): Promise<InvestigationFeedbackEntry[]> {
+  const result = await request<{ data: InvestigationFeedbackEntry[] }>(
+    '/investigations/feedback?limit=20',
+  );
   return result.data;
 }

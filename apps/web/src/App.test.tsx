@@ -7,10 +7,27 @@ import {
   getLogEntries,
   getLogSources,
   getRuntimeMode,
+  getInvestigationFeedback,
+  getSimilarIncidents,
   signIn,
   sendInvestigationMessage,
+  submitInvestigationFeedback,
   updateIncidentStatus,
 } from './api';
+
+const mockPdfSave = vi.hoisted(() => vi.fn());
+vi.mock('jspdf', () => ({
+  jsPDF: class {
+    internal = { pageSize: { getWidth: () => 595, getHeight: () => 842 } };
+    setFont = vi.fn();
+    setFontSize = vi.fn();
+    setTextColor = vi.fn();
+    splitTextToSize = (value: string) => [value];
+    text = vi.fn();
+    addPage = vi.fn();
+    save = mockPdfSave;
+  },
+}));
 
 vi.mock('./api', async () => {
   const { demoIncidents } = await import('./data/demo');
@@ -58,7 +75,7 @@ vi.mock('./api', async () => {
         {
           id: 'doc:db-pool-checks',
           title: 'Database connection pool exhaustion',
-          source: 'docs/runbooks/database-pool-exhaustion.md',
+          source: 'runbook://database-pool-exhaustion.md',
           lineStart: 1,
           lineEnd: 7,
           excerpt: 'Compare active connections and checkout wait time.',
@@ -67,6 +84,26 @@ vi.mock('./api', async () => {
       nextChecks: ['Compare the event with the recent deployment.'],
       safety: 'Suggestions are read-only. Human approval is required before any remediation.',
     })),
+    submitInvestigationFeedback: vi.fn(async () => ({
+      accepted: true as const,
+      rating: 'helpful' as const,
+    })),
+    getSimilarIncidents: vi.fn(async () => [
+      {
+        incident: { ...demoIncidents[2]!, id: 'INC-2845' },
+        similarityScore: 42,
+        reasons: ['shared terms: timeout'],
+      },
+    ]),
+    getInvestigationFeedback: vi.fn(async () => [
+      {
+        incidentId: 'INC-2847',
+        actorEmail: 'analyst@example.test',
+        rating: 'helpful' as const,
+        comment: 'Citations helped.',
+        createdAt: '2026-11-05T12:00:00.000Z',
+      },
+    ]),
   };
 });
 
@@ -257,5 +294,62 @@ describe('TraceMind dashboard', () => {
       'What should I check next?',
       [],
     );
+  });
+
+  it('finds a similar incident and opens it from the results', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    const table = screen.getByRole('table');
+    await within(table).findByText('INC-2847');
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for INC-2847' }));
+    fireEvent.click(within(table).getByRole('button', { name: 'Open investigation' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Incident investigation' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Find similar' }));
+    expect(
+      await within(dialog).findByText(/INC-2845 · Elevated 5xx on user profile endpoint/),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /INC-2845 · Elevated 5xx/ }));
+    expect(
+      await within(dialog).findByRole('heading', { name: 'Elevated 5xx on user profile endpoint' }),
+    ).toBeInTheDocument();
+    expect(getSimilarIncidents).toHaveBeenCalledWith('INC-2847');
+  });
+
+  it('records investigation feedback and provides PDF and Markdown report actions', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    const table = screen.getByRole('table');
+    await within(table).findByText('INC-2847');
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for INC-2847' }));
+    fireEvent.click(within(table).getByRole('button', { name: 'Open investigation' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Incident investigation' });
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'Ask an investigation question' }),
+      { target: { value: 'What should I check next?' } },
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send investigation question' }));
+    await within(dialog).findByText(
+      'The uploaded evidence should be compared with the release timeline.',
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Helpful' }));
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Optional feedback comment' }), {
+      target: { value: 'Citations helped.' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send feedback' }));
+    expect(
+      await within(dialog).findByText('Thanks — your feedback was recorded.'),
+    ).toBeInTheDocument();
+    expect(submitInvestigationFeedback).toHaveBeenCalledWith({
+      incidentId: 'INC-2847',
+      rating: 'helpful',
+      comment: 'Citations helped.',
+    });
+
+    mockPdfSave.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Reports' }));
+    expect(await screen.findByRole('dialog', { name: 'Incident reports' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(mockPdfSave).toHaveBeenCalledWith(expect.stringMatching(/\.pdf$/)));
+    expect(getInvestigationFeedback).toHaveBeenCalled();
   });
 });

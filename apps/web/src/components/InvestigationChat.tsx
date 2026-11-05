@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowUp, BookOpen, LoaderCircle, MessageSquareText, ShieldCheck } from 'lucide-react';
-import { sendInvestigationMessage, type InvestigationReply, type InvestigationTurn } from '../api';
+import {
+  sendInvestigationMessage,
+  submitInvestigationFeedback,
+  type InvestigationReply,
+  type InvestigationTurn,
+} from '../api';
 import type { Incident } from '../types';
 
 export function InvestigationChat({ incident }: { incident: Incident }) {
@@ -8,6 +13,10 @@ export function InvestigationChat({ incident }: { incident: Incident }) {
   const [reply, setReply] = useState<InvestigationReply | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState<'helpful' | 'not-helpful' | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackNotice, setFeedbackNotice] = useState('');
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
   const [error, setError] = useState('');
 
   async function submit(event: FormEvent) {
@@ -22,6 +31,9 @@ export function InvestigationChat({ incident }: { incident: Incident }) {
     try {
       const result = await sendInvestigationMessage(incident.id, question, turns.slice(-8));
       setReply(result);
+      setFeedbackRating(null);
+      setFeedbackComment('');
+      setFeedbackNotice('');
       setTurns([...updated, { role: 'assistant', content: result.answer }]);
     } catch (cause) {
       setError(
@@ -29,6 +41,23 @@ export function InvestigationChat({ incident }: { incident: Incident }) {
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function sendFeedback() {
+    if (!reply || !feedbackRating || feedbackBusy) return;
+    setFeedbackBusy(true);
+    try {
+      await submitInvestigationFeedback({
+        incidentId: incident.id,
+        rating: feedbackRating,
+        comment: feedbackComment,
+      });
+      setFeedbackNotice('Thanks — your feedback was recorded.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save feedback.');
+    } finally {
+      setFeedbackBusy(false);
     }
   }
 
@@ -86,6 +115,43 @@ export function InvestigationChat({ incident }: { incident: Incident }) {
           {reply.notice && <small>{reply.notice}</small>}
           <div className="chat-safety">
             <ShieldCheck size={14} /> {reply.safety}
+          </div>
+          <div className="chat-feedback">
+            <span>Was this response useful?</span>
+            <button
+              type="button"
+              className={feedbackRating === 'helpful' ? 'selected' : ''}
+              onClick={() => setFeedbackRating('helpful')}
+            >
+              Helpful
+            </button>
+            <button
+              type="button"
+              className={feedbackRating === 'not-helpful' ? 'selected' : ''}
+              onClick={() => setFeedbackRating('not-helpful')}
+            >
+              Needs work
+            </button>
+            {feedbackRating && !feedbackNotice && (
+              <>
+                <input
+                  aria-label="Optional feedback comment"
+                  maxLength={500}
+                  placeholder="Optional note for the team"
+                  value={feedbackComment}
+                  onChange={(event) => setFeedbackComment(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="feedback-submit"
+                  onClick={() => void sendFeedback()}
+                  disabled={feedbackBusy}
+                >
+                  {feedbackBusy ? 'Saving…' : 'Send feedback'}
+                </button>
+              </>
+            )}
+            {feedbackNotice && <small role="status">{feedbackNotice}</small>}
           </div>
         </div>
       )}

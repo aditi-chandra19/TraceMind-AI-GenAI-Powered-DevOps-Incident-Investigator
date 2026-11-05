@@ -67,6 +67,67 @@ export async function getIncident(id: string) {
   return memoryIncidents.find((incident) => incident.id === id) ?? null;
 }
 
+const similarityStopWords = new Set([
+  'after',
+  'that',
+  'with',
+  'from',
+  'this',
+  'the',
+  'and',
+  'for',
+  'into',
+  'following',
+  'service',
+  'incident',
+  'error',
+  'issue',
+  'during',
+  'were',
+  'was',
+  'have',
+  'has',
+]);
+function incidentTerms(incident: Pick<Incident, 'title' | 'service' | 'summary' | 'rootCause'>) {
+  return new Set(
+    `${incident.title} ${incident.service} ${incident.summary} ${incident.rootCause}`
+      .toLowerCase()
+      .match(/[a-z0-9]+/g)
+      ?.filter((term) => term.length > 2 && !similarityStopWords.has(term)) ?? [],
+  );
+}
+
+export async function findSimilarIncidents(id: string, limit: number) {
+  const source = await getIncident(id);
+  if (!source) return null;
+  const { data, mode } = await listIncidents({ page: 1, limit: 100 });
+  const sourceTerms = incidentTerms(source);
+  const results = data
+    .filter((candidate) => candidate.id !== id)
+    .map((candidate) => {
+      const candidateTerms = incidentTerms(candidate);
+      const shared = [...sourceTerms].filter((term) => candidateTerms.has(term));
+      const union = new Set([...sourceTerms, ...candidateTerms]).size;
+      const overlap = union ? shared.length / union : 0;
+      const sameService = candidate.service.toLowerCase() === source.service.toLowerCase();
+      const sameSeverity = candidate.severity === source.severity;
+      const similarityScore = Math.min(
+        99,
+        Math.round(overlap * 65 + (sameService ? 25 : 0) + (sameSeverity ? 10 : 0)),
+      );
+      const reasons = [
+        ...(sameService ? ['same service'] : []),
+        ...(sameSeverity ? ['same severity'] : []),
+        ...(shared.length ? [`shared terms: ${shared.slice(0, 4).join(', ')}`] : []),
+      ];
+      return { incident: candidate, similarityScore, reasons };
+    })
+    .filter((item) => item.similarityScore > 0)
+    .sort((a, b) => b.similarityScore - a.similarityScore)
+    .slice(0, limit);
+  return { data: results, mode };
+}
+
 export async function createIncident(
   input: Pick<Incident, 'title' | 'service' | 'severity'> &
     Partial<Pick<Incident, 'summary' | 'status'>>,

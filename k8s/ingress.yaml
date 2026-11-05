@@ -20,7 +20,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: tracemind-api
+                name: api
                 port:
                   number: 4000
           - path: /

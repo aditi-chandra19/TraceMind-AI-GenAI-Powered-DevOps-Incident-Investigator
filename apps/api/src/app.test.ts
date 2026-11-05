@@ -127,6 +127,35 @@ describe('TraceMind API', () => {
     expect(invalid.status).toBe(400);
   });
 
+  it('returns similar incidents and stores admin-readable investigation feedback', async () => {
+    const cookie = await demoCookie();
+    const similar = await fetch(`${base}/api/incidents/INC-2847/similar?limit=5`, {
+      headers: { cookie },
+    });
+    const similarBody = await similar.json();
+    expect(similar.status).toBe(200);
+    expect(similarBody.data.length).toBeGreaterThan(0);
+    expect(similarBody.data[0].incident.id).not.toBe('INC-2847');
+    expect(similarBody.data[0].similarityScore).toBeGreaterThan(0);
+
+    const feedback = await fetch(`${base}/api/investigations/feedback`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        incidentId: 'INC-2847',
+        rating: 'helpful',
+        comment: 'Citations helped.',
+      }),
+    });
+    expect(feedback.status).toBe(201);
+    const inbox = await fetch(`${base}/api/investigations/feedback?incidentId=INC-2847`, {
+      headers: { cookie },
+    });
+    const inboxBody = await inbox.json();
+    expect(inbox.status).toBe(200);
+    expect(inboxBody.data[0].comment).toBe('Citations helped.');
+  });
+
   it('enforces roles when an admin creates a viewer', async () => {
     const adminCookie = await demoCookie();
     const email = `viewer-${Date.now()}@example.test`;

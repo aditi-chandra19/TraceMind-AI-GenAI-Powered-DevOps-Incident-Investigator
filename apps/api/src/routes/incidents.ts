@@ -2,7 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { IncidentModel } from '../models/Incident.js';
-import { createIncident, getIncident, listIncidents } from '../services/incidents.js';
+import {
+  createIncident,
+  findSimilarIncidents,
+  getIncident,
+  listIncidents,
+} from '../services/incidents.js';
 import { databaseReady } from '../services/memoryStore.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -32,6 +37,20 @@ incidentRouter.get('/', async (req, res, next) => {
       .json({ error: 'Invalid query parameters', details: parsed.error.flatten() });
   try {
     return res.json(await listIncidents(parsed.data));
+  } catch (error) {
+    return next(error);
+  }
+});
+incidentRouter.get('/:id/similar', async (req, res, next) => {
+  const parsed = z
+    .object({ limit: z.coerce.number().int().min(1).max(10).default(5) })
+    .safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid query parameters' });
+  try {
+    const id = Array.isArray(req.params.id) ? (req.params.id[0] ?? '') : (req.params.id ?? '');
+    const result = await findSimilarIncidents(id, parsed.data.limit);
+    if (!result) return res.status(404).json({ error: 'Incident not found' });
+    return res.json(result);
   } catch (error) {
     return next(error);
   }

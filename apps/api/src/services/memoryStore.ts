@@ -38,12 +38,21 @@ export interface MemoryAuditEntry {
   details?: Record<string, unknown>;
   createdAt: string;
 }
+export interface MemoryInvestigationFeedback {
+  incidentId: string;
+  actorId: string;
+  actorEmail: string;
+  rating: 'helpful' | 'not-helpful';
+  comment: string;
+  createdAt: string;
+}
 
 export const memoryUsers = new Map<string, MemoryUser>();
 export const memoryIncidents: Incident[] = structuredClone(demoIncidents);
 export const memoryLogs: StoredLog[] = [];
 export const memorySources: MemoryLogSource[] = [];
 export const memoryAuditLogs: MemoryAuditEntry[] = [];
+export const memoryInvestigationFeedback: MemoryInvestigationFeedback[] = [];
 export const MAX_MEMORY_LOG_ENTRIES = 100_000;
 
 export function databaseReady() {
