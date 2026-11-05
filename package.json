@@ -14,6 +14,8 @@
     "db:up": "docker compose up -d mongo",
     "db:down": "docker compose stop mongo",
     "db:logs": "docker compose logs -f mongo",
+    "stack:up": "docker compose --profile app up -d --build",
+    "stack:down": "docker compose --profile app down",
     "db:seed": "npm --workspace apps/api run seed:demo",
     "build": "npm --workspace apps/web run build && npm --workspace apps/api run build",
     "test": "npm --workspace apps/api test && npm --workspace apps/web test",

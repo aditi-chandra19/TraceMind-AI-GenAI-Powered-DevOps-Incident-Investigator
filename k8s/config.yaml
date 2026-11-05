@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tracemind-config
+  namespace: tracemind
+data:
+  NODE_ENV: production
+  DEMO_MODE: 'false'
+  PORT: '4000'
+  WEB_ORIGIN: https://tracemind.example.com
+  OPENAI_MODEL: gpt-4o-mini
+  OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  MAX_UPLOAD_MB: '25'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tracemind-api
+  namespace: tracemind
+automountServiceAccountToken: false
