@@ -93,6 +93,40 @@ describe('TraceMind API', () => {
     expect(response.status).toBe(404);
   });
 
+  it('searches citable runbooks and returns grounded incident chat responses', async () => {
+    const cookie = await demoCookie();
+    const search = await fetch(`${base}/api/investigations/search`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ query: 'database connection pool exhaustion' }),
+    });
+    const searchBody = await search.json();
+    expect(search.status).toBe(200);
+    expect(searchBody.data.results[0].sourcePath).toContain('database-pool-exhaustion.md');
+    expect(searchBody.data.mode).toBe('keyword');
+
+    const response = await fetch(`${base}/api/investigations/chat`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ incidentId: 'INC-2847', message: 'What should I check next?' }),
+    });
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data.mode).toBe('local-rules');
+    expect(body.data.citations.length).toBeGreaterThan(0);
+    expect(body.data.safety).toContain('Human approval');
+  });
+
+  it('validates investigation chat inputs and limits chat to investigator roles', async () => {
+    const admin = await demoCookie();
+    const invalid = await fetch(`${base}/api/investigations/chat`, {
+      method: 'POST',
+      headers: { cookie: admin, 'content-type': 'application/json' },
+      body: JSON.stringify({ incidentId: 'INC-2847', message: 'x'.repeat(1201) }),
+    });
+    expect(invalid.status).toBe(400);
+  });
+
   it('enforces roles when an admin creates a viewer', async () => {
     const adminCookie = await demoCookie();
     const email = `viewer-${Date.now()}@example.test`;

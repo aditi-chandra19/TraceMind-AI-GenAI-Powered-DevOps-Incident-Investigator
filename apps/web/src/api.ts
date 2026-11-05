@@ -64,6 +64,28 @@ export interface LogAnalysis {
   evidence: LogEntry[];
   recommendations: string[];
 }
+export interface InvestigationReply {
+  incidentId: string;
+  mode: 'openai' | 'local-rules' | 'local-fallback';
+  retrievalMode: 'semantic' | 'keyword';
+  answer: string;
+  hypothesis: string;
+  citations: {
+    id: string;
+    title: string;
+    source: string;
+    lineStart: number;
+    lineEnd: number;
+    excerpt: string;
+  }[];
+  nextChecks: string[];
+  notice?: string;
+  safety: string;
+}
+export interface InvestigationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -177,5 +199,17 @@ export async function updateIncidentStatus(
     `/incidents/${encodeURIComponent(incidentId)}/status`,
     { method: 'PATCH', body: JSON.stringify({ status }) },
   );
+  return result.data;
+}
+
+export async function sendInvestigationMessage(
+  incidentId: string,
+  message: string,
+  history: InvestigationTurn[],
+) {
+  const result = await request<{ data: InvestigationReply }>('/investigations/chat', {
+    method: 'POST',
+    body: JSON.stringify({ incidentId, message, history }),
+  });
   return result.data;
 }

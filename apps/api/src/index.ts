@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { app } from './app.js';
 import { UserModel } from './models/User.js';
 import { seedIncidents } from './services/incidents.js';
+import { seedKnowledge } from './services/retrieval.js';
 import { demoModeEnabled } from './services/auth.js';
 
 const port = Number(process.env.PORT ?? 4000);
@@ -17,6 +18,7 @@ if (process.env.MONGODB_URI) {
     await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
     runtimeState.__traceMindMongoReady = true;
     await seedIncidents();
+    await seedKnowledge();
     if (demoModeEnabled()) {
       const email = (process.env.DEMO_ADMIN_EMAIL ?? 'admin@tracemind.local').trim().toLowerCase();
       if (!(await UserModel.exists({ email })))

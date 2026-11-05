@@ -54,6 +54,7 @@ import { SeverityBadge } from './components/SeverityBadge';
 import { MetricCard } from './components/MetricCard';
 import { LoginPage } from './features/auth/LoginPage';
 import { ActionDialog } from './components/ActionDialog';
+import { InvestigationChat } from './components/InvestigationChat';
 
 const trend = [
   { time: '09:00', current: 22, baseline: 19 },
@@ -1222,6 +1223,9 @@ function App() {
                     <option value="resolved">Resolved</option>
                   </select>
                 </div>
+              )}
+              {session.user.role !== 'viewer' && (
+                <InvestigationChat key={selectedIncident.id} incident={selectedIncident} />
               )}
             </div>
           )}

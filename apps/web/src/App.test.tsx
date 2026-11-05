@@ -8,6 +8,7 @@ import {
   getLogSources,
   getRuntimeMode,
   signIn,
+  sendInvestigationMessage,
   updateIncidentStatus,
 } from './api';
 
@@ -47,6 +48,25 @@ vi.mock('./api', async () => {
     signUp: vi.fn(),
     signOut: vi.fn(),
     uploadLog: vi.fn(),
+    sendInvestigationMessage: vi.fn(async () => ({
+      incidentId: 'INC-2847',
+      mode: 'local-rules' as const,
+      retrievalMode: 'keyword' as const,
+      answer: 'The uploaded evidence should be compared with the release timeline.',
+      hypothesis: 'Unverified: connection pool pressure.',
+      citations: [
+        {
+          id: 'doc:db-pool-checks',
+          title: 'Database connection pool exhaustion',
+          source: 'docs/runbooks/database-pool-exhaustion.md',
+          lineStart: 1,
+          lineEnd: 7,
+          excerpt: 'Compare active connections and checkout wait time.',
+        },
+      ],
+      nextChecks: ['Compare the event with the recent deployment.'],
+      safety: 'Suggestions are read-only. Human approval is required before any remediation.',
+    })),
   };
 });
 
@@ -209,5 +229,33 @@ describe('TraceMind dashboard', () => {
     expect(screen.getByRole('button', { name: /Last 7 days/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(await screen.findByText('INC-2844')).toBeInTheDocument();
+  });
+
+  it('sends a contextual investigation question and displays cited guidance', async () => {
+    render(<App />);
+    await screen.findByText('Recent incidents');
+    const table = screen.getByRole('table');
+    await within(table).findByText('INC-2847');
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for INC-2847' }));
+    fireEvent.click(within(table).getByRole('button', { name: 'Open investigation' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Incident investigation' });
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'Ask an investigation question' }),
+      {
+        target: { value: 'What should I check next?' },
+      },
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send investigation question' }));
+    expect(
+      await within(dialog).findByText(
+        'The uploaded evidence should be compared with the release timeline.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/database-pool-exhaustion\.md:1–7/)).toBeInTheDocument();
+    expect(sendInvestigationMessage).toHaveBeenCalledWith(
+      'INC-2847',
+      'What should I check next?',
+      [],
+    );
   });
 });

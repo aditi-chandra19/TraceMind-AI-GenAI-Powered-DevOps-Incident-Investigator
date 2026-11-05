@@ -25,7 +25,7 @@ const cookieOptions = {
 };
 const loginLimit = rateLimit({
   windowMs: 15 * 60_000,
-  limit: 10,
+  limit: process.env.NODE_ENV === 'test' ? 100 : 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many sign-in attempts. Try again in 15 minutes.' },

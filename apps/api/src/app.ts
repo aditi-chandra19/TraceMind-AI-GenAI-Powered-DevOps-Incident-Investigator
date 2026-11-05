@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.js';
 import { auditRouter } from './routes/audit.js';
 import { incidentRouter } from './routes/incidents.js';
 import { logRouter } from './routes/logs.js';
+import { investigationRouter } from './routes/investigations.js';
 import { requireAuth } from './middleware/auth.js';
 import { listIncidents } from './services/incidents.js';
 import { databaseReady } from './services/memoryStore.js';
@@ -60,6 +61,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/incidents', incidentRouter);
 app.use('/api/logs', logRouter);
+app.use('/api/investigations', investigationRouter);
 app.get('/api/overview', requireAuth, async (_req, res, next) => {
   try {
     const result = await listIncidents({ page: 1, limit: 100 });
