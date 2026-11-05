@@ -121,6 +121,8 @@ The current knowledge base contains three built-in operational runbooks: databas
 | Chart date range / baseline / export              | Changes the displayed period, toggles the comparison line, and downloads chart values as CSV.             |
 | Bell, profile, help, workspace, and menu controls | Open their corresponding notification, account, help, workspace, or responsive navigation panels.         |
 
+Incident, log, account, status, audit, similar-incident, feedback, chat, and export flows use the API/database where described. The overview activity chart and latency/error/CPU summary values are illustrative signals because no external metrics provider (such as Prometheus or CloudWatch) is connected. **Services** and **Infrastructure** panels are derived from incidents and statuses stored in TraceMind; they do not query a live Kubernetes cluster. Application and Kubernetes events can be uploaded as logs for actual source-line investigation.
+
 ## Upload limits and data handling
 
 - The default upload cap is 25 MB (`MAX_UPLOAD_MB`). The parser is streaming, accepts one file per request, limits a line to 64 KiB and a source to 100,000 lines.
@@ -152,6 +154,10 @@ Development base URL: `http://localhost:4000/api`. Containerized base URL: `http
 Example PowerShell call after signing in and saving cookies in `$session`:
 
 ```powershell
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+Invoke-RestMethod -Method Post -Uri 'http://localhost:4000/api/auth/login' `
+  -ContentType 'application/json' -WebSession $session `
+  -Body (@{ email = 'YOUR_ADMIN_EMAIL'; password = 'YOUR_ADMIN_PASSWORD' } | ConvertTo-Json)
 $body = @{ incidentId = 'INC-2847'; message = 'What should I check next?'; history = @() } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri 'http://localhost:4000/api/investigations/chat' `
   -ContentType 'application/json' -WebSession $session -Body $body

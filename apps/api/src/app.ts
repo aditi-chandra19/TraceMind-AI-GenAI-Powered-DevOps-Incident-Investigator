@@ -16,6 +16,8 @@ import { maxUploadMb } from './config/limits.js';
 
 export const app = express();
 app.disable('x-powered-by');
+// Nginx is the only deployed upstream and replaces X-Forwarded-For with its peer address.
+app.set('trust proxy', 1);
 app.use(helmet());
 const configuredWebOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:5173';
 const viteDevOrigin = /^http:\/\/(?:localhost|127\.0\.0\.1):517[0-9]$/;
